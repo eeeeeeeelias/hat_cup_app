@@ -1,2 +1,2 @@
-# hat_cup_app
-Console app for hat tournaments.
+# hat_cup_cli
+Console CLI application for hat tournaments.
