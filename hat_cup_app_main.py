@@ -1,3 +1,7 @@
+"""
+ilya pogodaev, 2019
+"""
+
 import click
 import json
 import logging
