@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 '''
 ilya pogodaev, 2019
 '''
@@ -11,6 +14,8 @@ TABLE_MIN_SIZE = 6
 TABLE_MAX_SIZE = 8
 CURRENT_CUP_ID = 3
 NOT_DEFINED = -1000
+
+STOPPER_NAME = 'stop'
 
 MAX_CUP_ID = 3
 MAX_TABLE_ID = 6
@@ -99,15 +104,35 @@ def is_valid_size(size: int) -> bool:
     return True
 
 
+def is_valid_stage_id(stage_id: int) -> bool:
+    if not is_positive_int(stage_id):
+        return False
+    if stage_id > 2:
+        return False
+    return True
+
+
+is_valid_score = is_positive_int
+
+
 # Commands.
 @main.command(help='Добавить результаты в базу')
 @click.option('--cup', 'cup_', default=CURRENT_CUP_ID, show_default=True, help='Номер кубка', type=int)
 @click.option('--table', 'table_', default=NOT_DEFINED, help='Номер стола', type=int)
 @click.option('--size', 'size_', default=NOT_DEFINED, help='Число игроков за столом', type=int)
+@click.option('--stage-id', 'stage_id_', default=NOT_DEFINED, help='Номер отборочной игры', type=int)
 @click.pass_obj
-def add_results(data, cup_, table_, size_):
+def add_results(data, cup_, table_, size_, stage_id_):
     while not is_valid_cup(cup_):
         cup_ = int(click.prompt('Введите номер кубка'))
+    while not is_valid_stage_id(stage_id_):
+        stage_id_ = int(click.prompt('Введите номер отборочной игры (1 или 2)'))
+    if stage_id_ == 1:
+        stage_id_ = FIRST_QUALIFICATION_STAGE_ID
+    elif stage_id_ == 2:
+        stage_id_ = SECOND_QUALIFICATION_STAGE_ID
+    else:
+        raise IndexError('В игре только 2 отбора')
     while not is_valid_table(table_):
         table_ = int(click.prompt('Введите номер стола'))
     while not is_valid_size(size_):
@@ -117,12 +142,38 @@ def add_results(data, cup_, table_, size_):
     logging.info('size == {}'.format(size_))
     for player_id in range(size_):
         player_name = ''
-        while not is_found_in_db(data, dataplayer_name):
+        while True:
             player_name = click.prompt('Введите имя игрока')
+            if (player_name == STOPPER_NAME):
+                return
+            found_player_name = is_found_in_db(data, player_name)
+            if len(found_player_name) != 0:
+                break
         player_score = NOT_DEFINED
-        while is_valid_score(player_score):
+        while not is_valid_score(player_score):
             player_score = int(click.prompt('Введите число очков'))
-        raise NotImplementedError
+        player_score = player_score / (size_ - 1) * (TABLE_DEFAULT_SIZE - 1)
+        data[found_player_name]["scores"][stage_id_] = player_score
+        data[found_player_name]["tables"] = dict()
+        data[found_player_name]["tables"][stage_id_] = table_
+
+
+def is_found_in_db(db, player_name: str) -> str:
+    player_name = player_name.lower()
+    found_players = []
+    for candidate_name in db.keys():
+        if candidate_name.lower().find(player_name) != -1:
+            found_players.append(candidate_name)
+    if len(found_players) == 0:
+        print('Игрок в базе не найден')
+        return ''
+    if len(found_players) > 1:
+        print('Найдено слишком много игроков:')
+        for player in found_players:
+            print(db[player]['name'])
+        return ''
+    print('Найден игрок {}'.format(found_players[0]))
+    return found_players[0]
 
 
 @main.command(help='Добавить игрока в базу')
@@ -153,7 +204,19 @@ def import_players(data, file_name):
 def _add_player_to_db(data, new_player_name):
     if new_player_name in data.keys():
         raise FileExistsError('Игрок уже есть в базе')
-    data[new_player_name] = new_player_name
+    data[new_player_name] = {
+        "name" : new_player_name,
+        "scores": {
+            FIRST_QUALIFICATION_STAGE_ID : 0,
+            SECOND_QUALIFICATION_STAGE_ID : 0,
+            FINAL_STAGE_ID : 0,
+        },
+        "tables": {
+            FIRST_QUALIFICATION_STAGE_ID : 0,
+            SECOND_QUALIFICATION_STAGE_ID : 0,
+            FINAL_STAGE_ID : 0,
+        },
+    }
 
 
 @main.command(help='Сгенерировать сетку')
