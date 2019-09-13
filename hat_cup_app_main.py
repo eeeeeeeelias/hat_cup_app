@@ -219,13 +219,50 @@ def _add_player_to_db(data, new_player_name):
     }
 
 
+import random
+@main.command()
+@click.pass_obj
+def filler(db):
+    for player_name in db.keys():
+        db[player_name]['scores'][FIRST_QUALIFICATION_STAGE_ID] = random.randint(10, 90)
+
+
+
 @main.command(help='Сгенерировать сетку')
 def generate_grid():
     raise NotImplementedError
 
 
+def filter_by_1(db, candidate_name) -> bool:
+    return db[candidate_name]['scores'][FIRST_QUALIFICATION_STAGE_ID] > 0
+
+def filter_by_2(db, candidate_name) -> bool:
+    return db[candidate_name]['scores'][SECOND_QUALIFICATION_STAGE_ID] > 0
+
+def filter_by_sum(db, candidate_name) -> bool:
+    return (
+        db[candidate_name]['scores'][FIRST_QUALIFICATION_STAGE_ID] > 0
+        or
+        db[candidate_name]['scores'][SECOND_QUALIFICATION_STAGE_ID] > 0
+        )
+
+from functools import partial
+
 @main.command(help='Распечатать результаты')
-def write_results():
+@main.option('--stage', 'stage_id_', default=NOT_DEFINED, type=int)
+@click.pass_obj
+def write_results(db, stage_id_):
+    ordered_players = [key for key in db.keys()]
+    print(ordered_players)
+    if stage_id_ == 1:
+        stage_id_ = FIRST_QUALIFICATION_STAGE_ID
+        non_playing_filter = partial(str, )filter_by_1
+    elif stage_id_ == 2:
+        stage_id_ = SECOND_QUALIFICATION_STAGE_ID
+        non_playing_filter = filter_by_2
+    else:
+        non_playing_filter = filter_by_sum
+    ordered_players = list(filter(, ordered_players))
     raise NotImplementedError
 
 
