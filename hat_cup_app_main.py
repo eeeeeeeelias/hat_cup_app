@@ -154,7 +154,6 @@ def add_results(data, cup_, table_, size_, stage_id_):
             player_score = int(click.prompt('Введите число очков'))
         player_score = player_score / (size_ - 1) * (TABLE_DEFAULT_SIZE - 1)
         data[found_player_name]["scores"][stage_id_] = player_score
-        data[found_player_name]["tables"] = dict()
         data[found_player_name]["tables"][stage_id_] = table_
 
 
@@ -233,37 +232,84 @@ def generate_grid():
     raise NotImplementedError
 
 
-def filter_by_1(db, candidate_name) -> bool:
+def filter_by_1(candidate_name, db) -> bool:
     return db[candidate_name]['scores'][FIRST_QUALIFICATION_STAGE_ID] > 0
 
-def filter_by_2(db, candidate_name) -> bool:
+def filter_by_2(candidate_name, db) -> bool:
     return db[candidate_name]['scores'][SECOND_QUALIFICATION_STAGE_ID] > 0
 
-def filter_by_sum(db, candidate_name) -> bool:
+def filter_by_sum(candidate_name, db) -> bool:
     return (
         db[candidate_name]['scores'][FIRST_QUALIFICATION_STAGE_ID] > 0
         or
         db[candidate_name]['scores'][SECOND_QUALIFICATION_STAGE_ID] > 0
         )
 
+
+def score_by_1(candidate_name, db) -> float:
+    return db[candidate_name]['scores'][FIRST_QUALIFICATION_STAGE_ID]
+
+def score_by_2(candidate_name, db) -> float:
+    return db[candidate_name]['scores'][SECOND_QUALIFICATION_STAGE_ID]
+
+def score_by_sum(candidate_name, db) -> float:
+    return score_by_1(candidate_name, db) + score_by_2(candidate_name, db) * 1.001
+
+
+def print_1(candidate_names, db) -> None:
+    print('Результаты первой игры')
+    for i, candidate_name in enumerate(candidate_names):
+        print('{:>2} | {:>30} | {:6.2f}'.format(i + 1, candidate_name, db[candidate_name]['scores'][FIRST_QUALIFICATION_STAGE_ID]))
+
+def print_2(candidate_names, db) -> None:
+    print('Результаты второй игры')
+    for i, candidate_name in enumerate(candidate_names):
+        print('{:>2} | {:>30} | {:6.2f}'.format(i + 1, candidate_name, db[candidate_name]['scores'][SECOND_QUALIFICATION_STAGE_ID]))
+
+
+def print_sum(candidate_names, db) -> None:
+    print('Результаты отбора')
+    for i, candidate_name in enumerate(candidate_names):
+        print('{:>2} | {:>30} | {:6.2f} {:6.2f} | {:6.2f}'.format(
+            i + 1,
+            candidate_name,
+            db[candidate_name]['scores'][FIRST_QUALIFICATION_STAGE_ID],
+            db[candidate_name]['scores'][SECOND_QUALIFICATION_STAGE_ID],
+            db[candidate_name]['scores'][FIRST_QUALIFICATION_STAGE_ID] + db[candidate_name]['scores'][SECOND_QUALIFICATION_STAGE_ID],
+        ))
+
+
 from functools import partial
 
 @main.command(help='Распечатать результаты')
-@main.option('--stage', 'stage_id_', default=NOT_DEFINED, type=int)
+@click.option('--stage', 'stage_id_', default=NOT_DEFINED, type=int)
 @click.pass_obj
 def write_results(db, stage_id_):
     ordered_players = [key for key in db.keys()]
-    print(ordered_players)
     if stage_id_ == 1:
         stage_id_ = FIRST_QUALIFICATION_STAGE_ID
-        non_playing_filter = partial(str, )filter_by_1
+        non_playing_filter = partial(filter_by_1, db=db)
     elif stage_id_ == 2:
         stage_id_ = SECOND_QUALIFICATION_STAGE_ID
-        non_playing_filter = filter_by_2
+        non_playing_filter = partial(filter_by_2, db=db)
     else:
         non_playing_filter = filter_by_sum
-    ordered_players = list(filter(, ordered_players))
-    raise NotImplementedError
+        non_playing_filter = partial(filter_by_sum, db=db)
+    ordered_players = list(filter(non_playing_filter, ordered_players))
+    if stage_id_ == FIRST_QUALIFICATION_STAGE_ID:
+        get_score = partial(score_by_1, db=db)
+    elif stage_id_ == SECOND_QUALIFICATION_STAGE_ID:
+        get_score = partial(score_by_2, db=db)
+    else:
+        get_score = partial(score_by_sum, db=db)
+    ordered_players.sort(key=get_score, reverse=True)
+    if stage_id_ == FIRST_QUALIFICATION_STAGE_ID:
+        print_results = partial(print_1, db=db)
+    elif stage_id_ == SECOND_QUALIFICATION_STAGE_ID:
+        print_results = partial(print_2, db=db)
+    else:
+        print_results = partial(print_sum, db=db)
+    print_results(ordered_players)
 
 
 @main.command(help='Распечатать сетку')
