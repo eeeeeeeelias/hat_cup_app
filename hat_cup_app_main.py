@@ -278,13 +278,18 @@ def print_sum(candidate_names, db) -> None:
             db[candidate_name]['scores'][FIRST_QUALIFICATION_STAGE_ID] + db[candidate_name]['scores'][SECOND_QUALIFICATION_STAGE_ID],
         ))
 
+def just_names(candidate_names, db) -> None:
+    for candidate_name in candidate_names:
+        print(candidate_name)
+
 
 from functools import partial
 
 @main.command(help='Распечатать результаты')
 @click.option('--stage', 'stage_id_', default=NOT_DEFINED, type=int)
+@click.option('--names', 'names_', count=True)
 @click.pass_obj
-def write_results(db, stage_id_):
+def write_results(db, stage_id_, names_):
     ordered_players = [key for key in db.keys()]
     if stage_id_ == 1:
         stage_id_ = FIRST_QUALIFICATION_STAGE_ID
@@ -303,7 +308,9 @@ def write_results(db, stage_id_):
     else:
         get_score = partial(score_by_sum, db=db)
     ordered_players.sort(key=get_score, reverse=True)
-    if stage_id_ == FIRST_QUALIFICATION_STAGE_ID:
+    if names_ == 1:
+        print_results = partial(just_names, db=db)
+    elif stage_id_ == FIRST_QUALIFICATION_STAGE_ID:
         print_results = partial(print_1, db=db)
     elif stage_id_ == SECOND_QUALIFICATION_STAGE_ID:
         print_results = partial(print_2, db=db)
